@@ -1,1 +1,3 @@
-cases = [1000,2000,4000,5000]
+Import the pandas library as pd
+Import the Numpy library as np
+print("Hello Capstone Project Course!")
