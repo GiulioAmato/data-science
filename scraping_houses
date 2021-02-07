@@ -130,3 +130,12 @@ final = lisboa_merged.groupby(['Overpriced','Zone']).size().reset_index(name='co
 
 
 
+filename = "Lisboa_data.xlsx"
+app = xw.App(visible=False)
+wb = xw.Book(filename)
+ws = wb.sheets["Lisboa_data"]
+
+ws.clear()
+ws["A1"].options(pd.DataFrame, header=1, index=False, expand='table').value = lisboa
+
+
