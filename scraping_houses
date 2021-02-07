@@ -1,0 +1,132 @@
+from bs4 import BeautifulSoup
+from requests import get
+import pandas as pd
+import itertools
+from random import randint
+from time import sleep
+from numpy import inf
+
+
+n_pages = 0
+
+titles = []
+created = []
+prices = []
+areas = []
+zone = []
+condition = []
+descriptions = []
+urls = []
+thumbnails = []
+Cost_per_m2 = []
+
+for page in range(0,100):
+    n_pages += 1
+    headers = ({'User-Agent':
+                'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36'})
+    sapo_url = 'https://casa.sapo.pt/Venda/Apartamentos/?sa=11&lp=10000&or=10'+'&pn='+str(page)
+    r = get(sapo_url, headers=headers)
+    page_html = BeautifulSoup(r.text, 'html.parser')
+    house_containers = page_html.find_all('div', class_="searchResultProperty")
+
+    if house_containers != []:
+        for container in house_containers:
+            
+            # Price 
+
+            price = container.find_all('span')[3].text
+            if price == 'Contacte Anunciante':
+                price = container.find_all('span')[4].text
+                if price.find('/') != -1:
+                    price = price[0:price.find('/')-1]
+            if price.find('/') != -1:
+                price = price[0:price.find('/')-1]
+            
+            price_ = [int(price[s]) for s in range(0,len(price)) if price[s].isdigit()]
+            price = ''
+            for x in price_:
+                price = price+str(x)
+            prices.append(int(''.join(itertools.takewhile(str.isdigit,price))))    
+
+            # Zone
+
+            location = container.find_all('p', class_="searchPropertyLocation")[0].text
+            
+            location = location.strip()
+            
+            zone.append(location)
+            
+            # Title
+            name = container.find_all('span')[0].text
+            titles.append(name)
+
+            # Status
+            status = container.find_all('p')[5].text
+            condition.append(status)
+
+            # Area
+            m2 = container.find_all('p')[9].text
+            if m2 != '-':
+                m2 = m2.replace('\xa0','')
+                m2 = int("".join(itertools.takewhile(str.isdigit, m2)))
+                areas.append(m2)
+ 
+            else:
+                m2 = container.find_all('p')[7].text
+                if m2 != '-':
+                    m2 = m2.replace('\xa0','')
+                    m2 = int("".join(itertools.takewhile(str.isdigit, m2)))
+                    areas.append(m2)
+                else:
+                    m2=0
+                    areas.append(m2)
+                
+            # Description
+            desc = container.find_all('p', class_="searchPropertyDescription")[0].text[7:-6]
+            descriptions.append(desc)
+
+            # url
+            link = 'https://casa.sapo.pt/' + container.find_all('a')[0].get('href')[1:-6]
+            urls.append(link)
+
+            # image
+            img = str(container.find_all('img')[0])
+            img = img[img.find('data-src-retina=')+18:img.find('id=')-2]
+            thumbnails.append(img)
+                
+    else:
+        break  
+
+    sleep(randint(1,2))  
+
+cols = ['Zone','1_Cost_per_m2']
+
+mean_lisboa = pd.DataFrame({'1_Cost_per_m2': 0,
+                           'Zone': zone})[cols]
+
+cols = ['Title', 'Zone', 'Price', 'Size (m²)','Cost_per_m2', 'Status', 'Description']
+
+lisboa = pd.DataFrame({'Title': titles,
+                           'Price': prices,
+                           'Size (m²)': areas,
+                           'Cost_per_m2': 0,
+                           'Zone': zone,
+                           'Status': condition,
+                           'Description': descriptions})[cols]
+CPM = lisboa['Price'].div(lisboa['Size (m²)'].values,axis=0)
+
+lisboa['Cost_per_m2']=CPM
+lisboa[lisboa['Cost_per_m2']==inf] = 0
+lisboa = lisboa.sort_values(by=['Cost_per_m2'])
+lisboa= lisboa[lisboa['Cost_per_m2'] != 0]
+mean_lisboa['1_Cost_per_m2']=CPM
+mean_lisboa[mean_lisboa['1_Cost_per_m2']==inf] = 0
+mean_lisboa = mean_lisboa.sort_values(by=['1_Cost_per_m2'])
+mean_lisboa= mean_lisboa[mean_lisboa['1_Cost_per_m2'] != 0]
+mean_lisboa = mean_lisboa.groupby(['Zone']).mean()
+lisboa_merged = lisboa.merge(mean_lisboa, on='Zone', how='left')
+lisboa_merged['Overpriced'] = lisboa_merged['Cost_per_m2']>lisboa_merged['1_Cost_per_m2']
+
+
+
+
