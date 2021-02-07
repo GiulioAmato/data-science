@@ -126,7 +126,7 @@ mean_lisboa= mean_lisboa[mean_lisboa['1_Cost_per_m2'] != 0]
 mean_lisboa = mean_lisboa.groupby(['Zone']).mean()
 lisboa_merged = lisboa.merge(mean_lisboa, on='Zone', how='left')
 lisboa_merged['Overpriced'] = lisboa_merged['Cost_per_m2']>lisboa_merged['1_Cost_per_m2']
-
+final = lisboa_merged.groupby(['Overpriced','Zone']).size().reset_index(name='counts')
 
 
 
